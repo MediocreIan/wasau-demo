@@ -73,12 +73,10 @@ class PhotoEditor extends React.Component {
     let c = this
     fabric.Image.fromURL(this.state.imageURI, function(oImg) {
       if(c.state.canvas){
-        oImg.width = c.state.canvas.width;
-        oImg.height = c.state.canvas.height;
-        oImg.left = 0;
-        oImg.top = 0;
-        oImg.padding = 0
-        // oImg.selectable = false
+        oImg.center()
+        oImg.scaleY = c.state.canvas.height / oImg.height
+        oImg.scaleX = c.state.canvas.width / oImg.width
+        oImg.selectable = false
         console.log(oImg)
         c.state.canvas.add(oImg);
     }
