@@ -2,9 +2,12 @@ import React from 'react'
 //import { Test } from './PhotoEditor.styles';
 import { fabric } from 'fabric' // this also installed on your project
 import './style.css'
+import { Steps } from 'antd';
+
+const { Step } = Steps;
 let canvas
 class PhotoEditor extends React.Component {
-  constructor (props) {
+  constructor(props) {
     super(props)
     this.state = {
       left: 0,
@@ -12,27 +15,32 @@ class PhotoEditor extends React.Component {
       right: 0,
       bottom: 0,
       clicks: 0,
-      id : "someUniqueId", // I would use this.props.id for a real world implementation
-      imageURI : null,
+      id: "someUniqueId", // I would use this.props.id for a real world implementation
+      imageURI: null,
       canvas: null,
-      background: false
+      background: false,
+      square: false,
+      rotation: 0,
+      currentTab: 0
     }
   }
 
-  componentDidMount () {
+  componentDidMount() {
     canvas = new fabric.Canvas('c')
-    this.setState({canvas:canvas})
+    this.setState({ canvas: canvas })
 
     let c = this
-    function getMousePosition (canvasTarget, event) {
+    function getMousePosition(canvasTarget, event) {
       let rect = canvasTarget.getBoundingClientRect()
       let x = event.clientX - rect.left
       let y = event.clientY - rect.top
-      console.log('Coordinate x: ' + x, 'Coordinate y: ' + y)
-      if (c.state.clicks % 2 === 0) {
+      console.log(c.state.clicks === 0 && c.state.imageURI)
+      if (c.state.clicks === 0 && c.state.imageURI) {
         c.setState({ left: x, top: y })
-      } else {
+      } else if (c.state.clicks === 1 && c.state.imageURI){
         c.setState({ right: x, bottom: y })
+        c.handleClick()
+        c.setState({currentTab: 2})
       }
       c.setState({ clicks: c.state.clicks + 1 })
     }
@@ -41,7 +49,6 @@ class PhotoEditor extends React.Component {
 
     canvasElem.addEventListener('mousedown', function (e) {
       getMousePosition(canvasElem, e)
-      console.log('e')
     })
   }
   handleClick = () => {
@@ -50,79 +57,104 @@ class PhotoEditor extends React.Component {
       top: this.state.top,
       bottom: this.state.bottom,
       right: this.state.right,
-      fill: 'red',
+      // fill: 'red',
       height: this.state.bottom - this.state.top,
-      width: this.state.right - this.state.left
-      // angle: 45
-    })
-    console.log({
-      left: this.state.left,
-      top: this.state.top,
-      bottom: this.state.bottom,
-      right: this.state.right,
-      fill: 'red',
-      width: 300,
-      height: 300
+      width: this.state.right - this.state.left,
+      
     })
     // "add" rectangle onto canvas
     canvas.add(rectDraw)
+    this.setState({ square: true })
   }
 
-  buildImgTag(){
-    if(this.state.background === false && this.state.imageURI){
-    let c = this
-    fabric.Image.fromURL(this.state.imageURI, function(oImg) {
-      if(c.state.canvas){
+  buildImgTag() {
+    if (this.state.background === false && this.state.imageURI) {
+      let c = this
+      fabric.Image.fromURL(this.state.imageURI, function (oImg) {
+        if (c.state.canvas) {
+          let scale = c.state.canvas.height / oImg.height > c.state.canvas.width / oImg.width ? c.state.canvas.width / oImg.width : c.state.canvas.height / oImg.height
+          oImg.scaleY = scale
+          oImg.scaleX = scale
+          oImg.originX = 'middle'
+          oImg.originY = 'middle'
+          oImg.selectable = false
+          c.state.canvas.add(oImg);
+        }
+        c.setState({ background: oImg })
+        c.setState({currentTab: 1})
         oImg.center()
-        oImg.scaleY = c.state.canvas.height / oImg.height
-        oImg.scaleX = c.state.canvas.width / oImg.width
-        oImg.selectable = false
-        console.log(oImg)
-        c.state.canvas.add(oImg);
+      })
     }
-    });
-    this.setState({background:true})
   }
-  }
-  
-  readURI(e){
-    if(e.target.files && e.target.files[0]){
+
+  readURI(e) {
+    if (e.target.files && e.target.files[0]) {
       let reader = new FileReader();
-      reader.onload = function(ev){
-        this.setState({imageURI:ev.target.result});
+      reader.onload = function (ev) {
+        this.setState({ imageURI: ev.target.result });
       }.bind(this);
       reader.readAsDataURL(e.target.files[0]);
     }
   }
-  
-  handleChange(e){
+
+  handleFileChange(e) {
     this.readURI(e); // maybe call this with webworker or async library?
     if (this.props.onChange !== undefined)
       this.props.onChange(e); // propagate to parent component
 
   }
-  render () {
+
+  onSlideChange(val){
+    this.setState({rotation:val})
+    if (this.state.background){
+      canvas.item(0).angle = parseInt(val)
+  }
+  canvas.renderAll()
+  }
+  render() {
     const imgTag = this.buildImgTag();
     return (
-      <div style={{ width: '100vw' }}>
-        <canvas id='c' className='canvas' height='700px' width='700px'></canvas>
-        <button onClick={e => this.handleClick()}>make a box</button>
-        <div>
+      <div style={{width: '100vw'}}>
+     <Steps size="small" current={this.state.currentTab}>
+    <Step title="Upload image of your house" />
+    <Step title="Select door placement" />
+    <Step title="Finish" />
+  </Steps>
+        <center>
+        <canvas id='c' className='canvas' height='700px' width='700px' style={{
+         boxShadow:'0px 0px 0.5rem grey',
+        //  border: '1px solid black',
+        }}>
+
+        </canvas>
+          </center>
+    
+        {
+        this.state.imageURI ?
+          null  
+          :
+          <div>
             <label
               htmlFor={this.state.id}
               className="button">
               Upload an image
-            </label>
+                </label>
             <input
               id={this.state.id}
               type="file"
-              onChange={this.handleChange.bind(this)}
+              onChange={this.handleFileChange.bind(this)}
               className="show-for-sr" />
             <div
             //  style={{display:"none"}}
-             >{imgTag}</div>
+            >{imgTag}</div>
           </div>
+        }
+        <div class="slidecontainer">
+        <input type="range" min="-90" max="90" step="1" value={this.state.rotation} className="slider" id="image-rotation" onChange={(e) => this.onSlideChange(e.target.value)}/>
       </div>
+
+      </div>
+      
     )
   }
 }
